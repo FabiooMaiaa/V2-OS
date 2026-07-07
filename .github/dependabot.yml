@@ -1,0 +1,14 @@
+# OWASP A03 (Software Supply Chain): o Dependabot abre PRs automáticos
+# quando uma dependência tem correção de segurança ou nova versão.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+  # Mantém as próprias GitHub Actions atualizadas.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
