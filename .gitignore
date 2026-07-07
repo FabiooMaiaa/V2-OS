@@ -30,9 +30,6 @@ yarn-error.log*
 # exceção: o template SEM segredos é versionado para onboarding
 !.env.example
 
-# instruções locais do projeto — nunca versionar
-CLAUDE.md
-
 # vercel
 .vercel
 
