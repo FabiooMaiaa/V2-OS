@@ -1,0 +1,15 @@
+-- Bloco 1.2 (complemento) — least-privilege real em current_tenant_id().
+--
+-- Contexto: a migration anterior fez "revoke execute ... from public", mas isso
+-- NÃO tirou o anon. O Supabase concede EXECUTE a anon/authenticated/service_role
+-- EXPLICITAMENTE (via default privileges do schema public) — grants próprios,
+-- independentes do PUBLIC. Então o anon continuava podendo executar a função.
+--
+-- Não era vazamento (as políticas são "to authenticated" e a função retorna NULL
+-- para quem não tem auth.uid()), mas contrariava o least-privilege pretendido.
+-- Um visitante não autenticado não tem por que chamar a função de descoberta de
+-- tenant: removemos o EXECUTE do anon. Defesa-em-profundidade.
+--
+-- Mantidos: authenticated (as políticas dependem), postgres (dono) e service_role
+-- (fluxo server-side confiável, que já ignora o RLS).
+revoke execute on function public.current_tenant_id() from anon;
