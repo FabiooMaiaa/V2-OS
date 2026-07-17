@@ -1,6 +1,6 @@
 # Notas de Segurança — Vulnerabilidades Conhecidas e Aceitas
 
-_Última atualização: 2026-07-07_
+_Última atualização: 2026-07-16_
 
 Este arquivo documenta as vulnerabilidades reportadas pelo `npm audit` que já
 foram avaliadas e **conscientemente aceitas**, com o motivo de cada uma. É o
@@ -40,3 +40,18 @@ Rode `npm audit` periodicamente. Quando o Next passar a empacotar
 `postcss >= 8.5.10` (confira com `npm ls postcss` — a linha aninhada sob
 `next` deve sumir), **remova estas entradas**: elas deixam de existir e não
 precisam mais ser documentadas aqui.
+
+## Pendências técnicas conhecidas (não são vulnerabilidades)
+
+- **`process.version` no Edge Runtime (warning de build).** O middleware importa
+  o `@supabase/ssr`, que puxa o `@supabase/supabase-js`; este referencia
+  `process.version`, uma API Node não suportada no Edge Runtime → warning no
+  `next build`. **Não quebra:** o middleware funciona (redirects testados) e o
+  supabase-js lida com a ausência. Registrado como pendência, sem correção agora.
+  Quando tratar: avaliar rodar o middleware no runtime Node, ou usar um caminho
+  do client que não toque `process.version`. Origem: Bloco AUTH.2.
+
+- **Rate limiting de aplicação no login.** Adiado por decisão consciente: o
+  Supabase Auth já tem rate limit nativo no vetor principal (brute-force no
+  `signInWithPassword`), e limiter in-memory na Vercel serverless é ineficaz
+  (security theater). Entra quando houver um store compartilhado. Origem: AUTH.2.
