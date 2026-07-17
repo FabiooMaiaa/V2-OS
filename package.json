@@ -13,13 +13,13 @@
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.2",
     "next": "^15.5.20",
-    "react": "^18",
+    "react": "^19",
     "react-dom": "^18",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@types/node": "^20",
-    "@types/react": "^18",
+    "@types/react": "^19",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.5.4",
     "eslint": "^8",
