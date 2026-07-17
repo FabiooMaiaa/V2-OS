@@ -14,13 +14,13 @@
     "@supabase/supabase-js": "^2.108.2",
     "next": "^15.5.20",
     "react": "^18",
-    "react-dom": "^18",
+    "react-dom": "^19",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^18",
-    "@types/react-dom": "^18",
+    "@types/react-dom": "^19",
     "autoprefixer": "^10.5.4",
     "eslint": "^8",
     "eslint-config-next": "^15.5.20",
