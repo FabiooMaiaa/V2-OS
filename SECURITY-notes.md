@@ -55,3 +55,9 @@ precisam mais ser documentadas aqui.
   Supabase Auth já tem rate limit nativo no vetor principal (brute-force no
   `signInWithPassword`), e limiter in-memory na Vercel serverless é ineficaz
   (security theater). Entra quando houver um store compartilhado. Origem: AUTH.2.
+
+- **SMTP de produção.** O e-mail de confirmação usa o SMTP padrão do Supabase,
+  que é lento e não confiável (rate-limited, não recomendado para produção).
+  Todo o fluxo de auth (signup do dono e aceite de convite) depende desse
+  e-mail. Configurar um SMTP próprio (ex.: Resend/SES/Postmark) na Fase 7.
+  Origem: Bloco AUTH.3.

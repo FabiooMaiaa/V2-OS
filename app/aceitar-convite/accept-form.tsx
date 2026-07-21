@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState } from 'react'
-import { signUpOwner, type SignUpState } from './actions'
+import { acceptInvite, type AcceptState } from './actions'
 import {
   errorBoxClass,
   inputClass,
@@ -10,18 +10,17 @@ import {
   successBoxClass,
 } from '@/lib/ui/form'
 
-const initialState: SignUpState = { status: 'idle' }
+const initialState: AcceptState = { status: 'idle' }
 
-export function SignUpForm() {
-  // useActionState liga o formulário à Server Action e expõe o estado que ela
-  // retorna (erro/sucesso) + isPending para desabilitar o botão no envio.
+// O e-mail é apenas EXIBIDO (read-only, sem `name`) — não é submetido nem usado
+// pelo servidor, que deriva o e-mail do token. Só o token (hidden), nome e senha
+// vão no submit.
+export function AcceptForm({ token, email }: { token: string; email: string }) {
   const [state, formAction, isPending] = useActionState(
-    signUpOwner,
+    acceptInvite,
     initialState,
   )
 
-  // No sucesso, trocamos o formulário pela confirmação (confirmação de e-mail
-  // está ligada — não há login imediato).
   if (state.status === 'success') {
     return (
       <div role="alert" className={successBoxClass}>
@@ -32,7 +31,8 @@ export function SignUpForm() {
 
   return (
     <form action={formAction} className="space-y-4" noValidate>
-      {/* Região de erro: role=alert + aria-live para leitores de tela anunciarem */}
+      <input type="hidden" name="token" value={token} />
+
       {state.status === 'error' && (
         <div role="alert" aria-live="polite" className={errorBoxClass}>
           {state.message}
@@ -40,26 +40,27 @@ export function SignUpForm() {
       )}
 
       <div>
-        <label htmlFor="tenantName" className={labelClass}>
-          Nome do escritório
+        <label htmlFor="email" className={labelClass}>
+          E-mail do convite
         </label>
+        {/* Sem `name`: exibição apenas; o servidor usa o e-mail do token. */}
         <input
-          id="tenantName"
-          name="tenantName"
-          type="text"
-          autoComplete="organization"
-          required
-          className={inputClass}
+          id="email"
+          type="email"
+          value={email}
+          readOnly
+          aria-readonly="true"
+          className={`${inputClass} bg-neutral-100 text-neutral-500`}
         />
       </div>
 
       <div>
-        <label htmlFor="ownerName" className={labelClass}>
+        <label htmlFor="nome" className={labelClass}>
           Seu nome
         </label>
         <input
-          id="ownerName"
-          name="ownerName"
+          id="nome"
+          name="nome"
           type="text"
           autoComplete="name"
           required
@@ -68,22 +69,8 @@ export function SignUpForm() {
       </div>
 
       <div>
-        <label htmlFor="email" className={labelClass}>
-          E-mail
-        </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-          className={inputClass}
-        />
-      </div>
-
-      <div>
         <label htmlFor="password" className={labelClass}>
-          Senha
+          Crie uma senha
         </label>
         <input
           id="password"
@@ -98,7 +85,7 @@ export function SignUpForm() {
       </div>
 
       <button type="submit" disabled={isPending} className={primaryButtonClass}>
-        {isPending ? 'Criando…' : 'Criar escritório'}
+        {isPending ? 'Aceitando…' : 'Aceitar convite'}
       </button>
     </form>
   )
