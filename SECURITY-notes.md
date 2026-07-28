@@ -61,3 +61,38 @@ precisam mais ser documentadas aqui.
   Todo o fluxo de auth (signup do dono e aceite de convite) depende desse
   e-mail. Configurar um SMTP próprio (ex.: Resend/SES/Postmark) na Fase 7.
   Origem: Bloco AUTH.3.
+
+## Fase 2 — WhatsApp (Evolution API): decisões conscientes
+
+### Escolha da Evolution API (não-oficial) vs. WhatsApp Business API oficial
+- **Decisão:** usar Evolution API (self-hosted, via Railway) para o MVP.
+- **Trade-off aceito:** a Evolution emula o protocolo do WhatsApp Web e
+  NÃO usa a API oficial da Meta. Isso viola os Termos de Serviço do
+  WhatsApp e implica risco de banimento do número conectado.
+- **Por que mesmo assim:** custo baixo, sem aprovação/verificação da Meta,
+  sem taxa por conversa — adequado para validar o produto rapidamente.
+- **Mitigação:** usar número secundário/sacrificável em desenvolvimento,
+  nunca número pessoal ou de produção crítica. Pinar a versão da imagem
+  Docker (não usar `latest`).
+- **Rota futura:** avaliar migração para a WhatsApp Business API oficial
+  (Meta direto ou provedor como Twilio/360dialog) quando o produto for
+  vendido em escala — sem risco de ban, mais "empresarial", porém com
+  verificação de negócio, revisão de templates e custo por conversa.
+
+### LGPD — dados de conversa são sensíveis
+- Mensagens de clientes de escritórios de contabilidade contêm dados
+  pessoais e fiscais (CPF, valores, documentos) sob proteção da LGPD.
+- Esses dados trafegam por: Evolution API (Railway), banco (Supabase) e
+  API do Claude (Anthropic) durante o processamento.
+- `on delete cascade` já garante remoção em cascata ao apagar tenant.
+- Pendências a tratar antes de produção real: política de retenção de
+  mensagens, atendimento ao direito de exclusão do titular, e revisão
+  dos contratos/DPAs dos processadores (Railway, Supabase, Anthropic).
+
+### Segurança do webhook (a implementar no Passo 3)
+- O endpoint que recebe eventos da Evolution processa entrada externa
+  não confiável. Travas obrigatórias: validação de assinatura/apikey da
+  origem, checagem de idempotência (message_id único, evitar
+  reprocessamento e cobrança dupla do Claude), e resposta HTTP 200
+  imediata (processamento do agente ocorre após responder, para evitar
+  timeout e reenvio pela Evolution).
