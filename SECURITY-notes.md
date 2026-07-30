@@ -62,6 +62,19 @@ precisam mais ser documentadas aqui.
   e-mail. Configurar um SMTP próprio (ex.: Resend/SES/Postmark) na Fase 7.
   Origem: Bloco AUTH.3.
 
+- **npm audit — 16 high restantes sem fix limpo.** Após o patch (next 15.5.22 +
+  postcss 8.5.25, que corrigiu as CVEs de RUNTIME próprias do Next), sobram 16
+  alertas high, todos SEM fix limpo (só via `--force`/major ou downgrade):
+  - **Dev-tooling (não roda em produção):** eslint, eslint-config-next,
+    eslint-plugin-*, glob, minimatch, brace-expansion, flat-cache, rimraf, etc.
+    Só sairiam com **eslint → 9/10** (flat config, breaking).
+  - **Transitivos do Next:** postcss@8.4.31 aninhado e sharp — só sairiam com
+    **next → 16** (major). O npm só oferece `next@9.3.3` (downgrade, recusado).
+  Decisão: **eslint→9/10 e next→16 são migrações dedicadas futuras**, não
+  `npm audit fix`. Nenhum é risco de dado de tenant — o RLS protege os dados
+  independentemente dessas CVEs de framework, e o runtime próprio do Next já
+  foi corrigido. Origem: início da Fase 2.
+
 ## Fase 2 — WhatsApp (Evolution API): decisões conscientes
 
 ### Escolha da Evolution API (não-oficial) vs. WhatsApp Business API oficial
