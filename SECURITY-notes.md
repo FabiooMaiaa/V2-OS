@@ -1,6 +1,6 @@
 # Notas de Segurança — Vulnerabilidades Conhecidas e Aceitas
 
-_Última atualização: 2026-07-16_
+_Última atualização: 2026-07-31_
 
 Este arquivo documenta as vulnerabilidades reportadas pelo `npm audit` que já
 foram avaliadas e **conscientemente aceitas**, com o motivo de cada uma. É o
@@ -11,35 +11,63 @@ uma mensagem de commit ninguém relê, este arquivo sim.
 
 | Vulnerabilidade | Severidade | Origem | Status | Motivo |
 |---|---|---|---|---|
-| `postcss < 8.5.10` — XSS via `</style>` não escapado no stringify (GHSA-qx2v-qp2m-jg93) | Moderate | Transitiva: `node_modules/next/node_modules/postcss@8.4.31` | **Aceita** | Toolchain de build; sem exposição em runtime; sem fix limpo (ver abaixo) |
-| `next` — depende do postcss vulnerável acima | Moderate | `node_modules/next` → postcss@8.4.31 empacotado | **Aceita** | Mesma cadeia do postcss; é a mesma raiz do problema |
+| `postcss <= 8.5.17` — 3 CVEs: XSS via `</style>` não escapado (GHSA-qx2v-qp2m-jg93); leitura arbitrária de arquivo via `sourceMappingURL` (GHSA-6g55-p6wh-862q); path traversal no auto-load de source map (GHSA-r28c-9q8g-f849) | **High** | Transitiva: `node_modules/next/node_modules/postcss` | **Aceita** | Toolchain de build; não processamos CSS de terceiros; sem fix limpo (ver abaixo) |
+| `sharp < 0.35.0` — CVEs herdadas do libvips (CVE-2026-33327/33328/35590/35591, GHSA-f88m-g3jw-g9cj) | **High** | Transitiva: `node_modules/sharp`, puxada pelo `next` | **Aceita** | Só entra em jogo com otimização de imagem do Next; não processamos imagem de terceiros |
+| `next` — depende das duas acima | **High** | `node_modules/next` | **Aceita** | Mesma raiz; não é vulnerabilidade própria do Next |
 
-As duas entradas do `npm audit` são a **mesma raiz**: o Next empacota
-`postcss@8.4.31` para o próprio processo de build.
+As entradas do `npm audit` têm **duas raízes**, ambas vendorizadas pelo Next para
+o próprio build: o `postcss` aninhado e o `sharp`. Em 2026-07-31 o audit reporta
+**3 high** (o `postcss` conta como 1 pacote com 3 CVEs).
+
+> **Atualizado em 2026-07-31:** a entrada anterior classificava o postcss como
+> _moderate_ com range `< 8.5.10`. Duas CVEs novas (path traversal e leitura
+> arbitrária de arquivo, ambas via `sourceMappingURL`) elevaram para **high** e
+> ampliaram o range para `<= 8.5.17`. A aceitação **se mantém**, pelo mesmo
+> motivo de sempre — o vetor exige CSS controlado pelo atacante em build time,
+> e o único CSS que compilamos é o nosso.
 
 **Racional da aceitação (vale para as duas):**
 
-- **Transitiva:** o Next fixa `postcss@8.4.31` como dependência — vale tanto
-  para a 15.5.20 (instalada) quanto para a 16.2.10. Não há versão do Next que
-  traga um postcss corrigido.
+- **Transitivas:** o Next vendoriza o `postcss` aninhado e puxa o `sharp`. Não
+  se resolvem por patch nosso: o nosso `postcss` de topo já está corrigido
+  (8.5.25), e o vulnerável vive dentro de `node_modules/next/node_modules/`.
+  Dependem de um release do Next ou de um `overrides` no `package.json`.
 - **Toolchain de build:** esse postcss compila **o nosso próprio CSS**
   (`app/globals.css` + Tailwind). Nenhum CSS controlado por terceiro/usuário
-  passa por ele. O postcss de topo (o do Tailwind) já é 8.5.15, corrigido.
-- **Sem exposição em runtime:** não roda em produção nem no browser do usuário
-  final — é ferramenta de build.
+  passa por ele — e as três CVEs exigem exatamente isso: CSS malicioso em build
+  time (o `sourceMappingURL` que dispara o path traversal está num comentário de
+  CSS de entrada).
+- **`sharp` idem:** só é exercitado pela otimização de imagem do Next. Não
+  servimos imagem enviada por terceiro; nenhum upload de imagem no produto.
+- **Sem exposição em runtime:** nenhuma das duas roda em produção nem no browser
+  do usuário final — são ferramentas de build.
 - **Sem fix limpo:** o único "fix" que o `npm audit fix --force` oferece é
   rebaixar o Next para 9.3.3 (de 2020, sem App Router), o que quebraria o
-  projeto e **reintroduziria 14 CVEs high**. Trocar 2 moderate de build por 14
-  high de runtime é estritamente pior — recusado.
+  projeto e **reintroduziria CVEs high de runtime**. Trocar 3 high de build por
+  um downgrade de 6 majors é estritamente pior — recusado.
+- **Não é risco de dado de tenant:** o isolamento por RLS protege os dados
+  independentemente destas CVEs de framework, e as CVEs de runtime próprias do
+  Next já foram corrigidas no patch para 15.5.22 (commit `4afa9a3`).
 - **Acompanhamento:** o Dependabot (`.github/dependabot.yml`) vai propor a
   atualização automaticamente quando o Next bumpar o postcss vendorizado.
+
+**A investigar (passo dedicado, DEPOIS da Fase 2 — decidido em 2026-07-31):**
+
+1. Se algum release do **Next 15.x** já bumpou o `postcss` vendorizado e o
+   `sharp` — seria o caminho mais limpo, sem major.
+2. Se vale um **`overrides`** do `postcss` no `package.json`, forçando o Next a
+   usar a versão corrigida. Precisa de teste de build: o Next pina aquela versão
+   por um motivo, e forçar outra pode quebrar a compilação de CSS.
+
+Deliberadamente **não** tratado durante a Fase 2, para não misturar migração de
+dependência com a entrega do agente.
 
 ## Como revisar
 
 Rode `npm audit` periodicamente. Quando o Next passar a empacotar
-`postcss >= 8.5.10` (confira com `npm ls postcss` — a linha aninhada sob
-`next` deve sumir), **remova estas entradas**: elas deixam de existir e não
-precisam mais ser documentadas aqui.
+`postcss > 8.5.17` e `sharp >= 0.35.0` (confira com `npm ls postcss sharp` — a
+linha aninhada sob `next` deve sumir), **remova estas entradas**: elas deixam de
+existir e não precisam mais ser documentadas aqui.
 
 ## Pendências técnicas conhecidas (não são vulnerabilidades)
 
@@ -62,18 +90,23 @@ precisam mais ser documentadas aqui.
   e-mail. Configurar um SMTP próprio (ex.: Resend/SES/Postmark) na Fase 7.
   Origem: Bloco AUTH.3.
 
-- **npm audit — 16 high restantes sem fix limpo.** Após o patch (next 15.5.22 +
-  postcss 8.5.25, que corrigiu as CVEs de RUNTIME próprias do Next), sobram 16
-  alertas high, todos SEM fix limpo (só via `--force`/major ou downgrade):
-  - **Dev-tooling (não roda em produção):** eslint, eslint-config-next,
-    eslint-plugin-*, glob, minimatch, brace-expansion, flat-cache, rimraf, etc.
-    Só sairiam com **eslint → 9/10** (flat config, breaking).
-  - **Transitivos do Next:** postcss@8.4.31 aninhado e sharp — só sairiam com
-    **next → 16** (major). O npm só oferece `next@9.3.3` (downgrade, recusado).
-  Decisão: **eslint→9/10 e next→16 são migrações dedicadas futuras**, não
-  `npm audit fix`. Nenhum é risco de dado de tenant — o RLS protege os dados
-  independentemente dessas CVEs de framework, e o runtime próprio do Next já
-  foi corrigido. Origem: início da Fase 2.
+- **Migração do eslint (dev-tooling) — não é mais item de segurança.**
+  Registrado no início da Fase 2 como 13 dos 16 alertas high (eslint,
+  eslint-plugin-*, glob, minimatch, brace-expansion, flat-cache, rimraf), que
+  supostamente só sairiam com **eslint → 9/10**. Em 2026-07-31 o `npm audit`
+  não acusa nenhum deles: o total caiu de 16 para **3 high** (`next`, `postcss`,
+  `sharp`).
+  **Verificado:** o eslint segue em **8.57.1**, ou seja, NÃO foi atualizado — as
+  sub-dependências transitivas é que ganharam versão corrigida, e o próprio
+  eslint 8.57.1 deixou de ser sinalizado. A migração para eslint 9/10 continua
+  desejável (o 8.x está em end-of-life e não recebe mais correção), mas por
+  manutenção, **não** por CVE aberta. Sai da fila de segurança.
+
+- **postcss / sharp transitivos do Next.** Ver a seção
+  **Vulnerabilidades aceitas** no topo deste arquivo — inclui o racional da
+  aceitação e os dois itens a investigar (release do Next 15.x vs. `overrides`).
+  Tratar em passo dedicado **depois da Fase 2**. Origem: início da Fase 2,
+  reavaliado no Passo 2a.
 
 ## Fase 2 — WhatsApp (Evolution API): decisões conscientes
 
