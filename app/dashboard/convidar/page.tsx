@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { Shell, BackLink } from '@/lib/ui/shell'
 import { InviteForm } from './invite-form'
 
 export const metadata: Metadata = {
@@ -89,22 +89,3 @@ export default async function ConvidarPage() {
   )
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-neutral-50 p-4">
-      <div className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-8 shadow-sm">
-        {children}
-      </div>
-    </main>
-  )
-}
-
-function BackLink() {
-  return (
-    <p className="mt-6 text-sm">
-      <Link href="/dashboard" className="font-medium text-[#FF5A1F] hover:underline">
-        ← Voltar ao painel
-      </Link>
-    </p>
-  )
-}
