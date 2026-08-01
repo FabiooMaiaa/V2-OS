@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Shell, BackLink } from '@/lib/ui/shell'
-import { inputClass, labelClass, primaryButtonClass } from '@/lib/ui/form'
+import { AgenteForm } from './agente-form'
 
 export const metadata: Metadata = {
   title: 'Agente — V2 OS',
@@ -64,49 +64,20 @@ export default async function AgentePage() {
         WhatsApp.
       </p>
 
+      {/*
+        O form só ir para o owner é CONVENIÊNCIA DE UI, não controle de acesso.
+        A trava real são as três camadas do servidor: a action revalida
+        role='owner', a política de UPDATE exige is_owner() + tenant próprio, e
+        o GRANT por coluna limita a escrita a (nome, system_prompt).
+      */}
       {isOwner ? (
-        <OwnerView systemPrompt={systemPrompt} />
+        <AgenteForm systemPrompt={systemPrompt} />
       ) : (
         <MemberView systemPrompt={systemPrompt} />
       )}
 
       <BackLink />
     </Shell>
-  )
-}
-
-/**
- * OWNER: textarea editável. O botão salvar está DESABILITADO neste passo — a
- * Server Action de gravação chega no passo (c), e um botão que finge salvar é
- * pior que um botão honestamente inativo.
- *
- * ATENÇÃO: este form ser exibido só ao owner é CONVENIÊNCIA de UI, não controle
- * de acesso. A trava real é a revalidação de role='owner' no servidor, dentro da
- * ação de salvar (passo c) — nunca confiar em "escondi o botão".
- */
-function OwnerView({ systemPrompt }: { systemPrompt: string }) {
-  return (
-    <div className="mt-6">
-      <label htmlFor="system_prompt" className={labelClass}>
-        Instruções do agente
-      </label>
-      <textarea
-        id="system_prompt"
-        name="system_prompt"
-        rows={18}
-        defaultValue={systemPrompt}
-        className={`${inputClass} font-mono text-sm leading-relaxed`}
-      />
-      <p className="mt-2 text-xs text-neutral-500">
-        {systemPrompt.length} caracteres
-      </p>
-      <button type="button" disabled className={`${primaryButtonClass} mt-4`}>
-        Salvar
-      </button>
-      <p className="mt-2 text-center text-xs text-neutral-500">
-        Salvar será habilitado no próximo passo.
-      </p>
-    </div>
   )
 }
 
