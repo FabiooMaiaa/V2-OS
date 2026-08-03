@@ -10,7 +10,13 @@ export const config = {
   // Roda em todas as rotas de PÁGINA (para renovar a sessão), mas exclui os
   // assets internos do Next e imagens estáticas — validar sessão a cada arquivo
   // estático seria custo sem ganho de segurança.
+  //
+  // `api/` também fica FORA: um webhook não tem sessão, então updateSession()
+  // só gastaria uma ida à rede ao Supabase Auth (getUser) por mensagem
+  // recebida, sem nenhum ganho. Rota de API que precise de sessão deve chamar
+  // getUser() por conta própria — o middleware sempre foi conveniência, nunca a
+  // fronteira de segurança (ver nota em lib/supabase/middleware.ts).
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api/|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

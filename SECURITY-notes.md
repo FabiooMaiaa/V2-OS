@@ -1,6 +1,6 @@
 # Notas de Segurança — Vulnerabilidades Conhecidas e Aceitas
 
-_Última atualização: 2026-07-31_
+_Última atualização: 2026-08-03_
 
 Este arquivo documenta as vulnerabilidades reportadas pelo `npm audit` que já
 foram avaliadas e **conscientemente aceitas**, com o motivo de cada uma. É o
@@ -134,6 +134,21 @@ existir e não precisam mais ser documentadas aqui.
 - Pendências a tratar antes de produção real: política de retenção de
   mensagens, atendimento ao direito de exclusão do titular, e revisão
   dos contratos/DPAs dos processadores (Railway, Supabase, Anthropic).
+
+### Rate limiting do webhook — pendência consciente (decidido em 2026-08-03)
+- **Não implementado**, e de propósito: limiter em memória na Vercel serverless
+  é _security theater_ — cada invocação tem memória própria, então o contador
+  reinicia e não limita nada. Mesmo raciocínio que adiou o rate limit do login.
+- **O que falta:** store compartilhado (Upstash/Redis, ou uma tabela de
+  contagem no Postgres) para valer entre invocações.
+- **Risco enquanto não existe:** quem tiver o `EVOLUTION_WEBHOOK_SECRET` pode
+  inundar o endpoint. O gasto direto de Claude fica contido porque a
+  idempotência (UNIQUE tenant_id + external_message_id) impede reprocessar a
+  mesma mensagem — mas ids diferentes a cada POST contornam isso.
+- **Mitigação atual:** o segredo é a única barreira, então ele tem que ser
+  forte e rotacionável. Um vazamento pede rotação imediata.
+- **Quando tratar:** antes de um escritório real usar em produção, junto com o
+  rate limit do login (mesmo store resolve os dois).
 
 ### Segurança do webhook (a implementar no Passo 3)
 - O endpoint que recebe eventos da Evolution processa entrada externa

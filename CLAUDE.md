@@ -6,7 +6,7 @@ Você é o desenvolvedor deste projeto. Leia estas regras antes de qualquer tare
 V2 OS: SaaS multi-tenant, Sistema Operacional para escritórios de
 contabilidade brasileiros, com agentes de IA que operam na interface web
 e no WhatsApp. Stack: Supabase (DB/Auth/RLS/Edge Functions/pgvector),
-Next.js na Vercel, Evolution API no Coolify, Claude API, PostHog.
+Next.js na Vercel, Evolution API no Railway, Claude API, PostHog.
 MVP = apenas o Agente Societário. Arquitetura genérica p/ 4 departamentos,
 implementação única.
 
