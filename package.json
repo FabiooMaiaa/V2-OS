@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "clean": "rimraf .next",
-    "verify:agente": "node scripts/verify-agente-seed.mjs"
+    "verify:agente": "node scripts/verify-agente-seed.mjs",
+    "verify:webhook": "node scripts/verify-webhook.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
