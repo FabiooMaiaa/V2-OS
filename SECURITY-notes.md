@@ -1,6 +1,6 @@
 # Notas de Segurança — Vulnerabilidades Conhecidas e Aceitas
 
-_Última atualização: 2026-08-03_
+_Última atualização: 2026-08-13_
 
 Este arquivo documenta as vulnerabilidades reportadas pelo `npm audit` que já
 foram avaliadas e **conscientemente aceitas**, com o motivo de cada uma. É o
@@ -108,6 +108,16 @@ existir e não precisam mais ser documentadas aqui.
   Tratar em passo dedicado **depois da Fase 2**. Origem: início da Fase 2,
   reavaliado no Passo 2a.
 
+- **`CHECK` em `mensagens.status` — adiar até o vocabulário estabilizar.** O
+  Passo 1 previa `sent/delivered/read/failed`; o Passo 3b-1 adicionou `sending`
+  (reserva da resposta antes do envio), e os webhooks de entrega da Evolution
+  provavelmente trarão mais valores. Um `CHECK` agora custaria uma migration a
+  cada valor novo, sem ganho: a coluna é escrita **exclusivamente** por RPC
+  server-side (`reserve_reply`, `confirm_reply`), nunca por input de usuário, e a
+  escrita em `mensagens` segue fail-closed no RLS. Risco baixo, decisão
+  consciente. **Quando tratar:** depois dos webhooks de entrega, quando a lista
+  de status estiver fechada. Origem: Passo 3b-1, decidido em 2026-08-13.
+
 ## Fase 2 — WhatsApp (Evolution API): decisões conscientes
 
 ### Escolha da Evolution API (não-oficial) vs. WhatsApp Business API oficial
@@ -149,6 +159,23 @@ existir e não precisam mais ser documentadas aqui.
   forte e rotacionável. Um vazamento pede rotação imediata.
 - **Quando tratar:** antes de um escritório real usar em produção, junto com o
   rate limit do login (mesmo store resolve os dois).
+
+### Teto de gasto de Claude por tenant — pendência consciente (decidido em 2026-08-13)
+- **Não implementado.** Hoje nada limita quanto um tenant pode gastar de API do
+  Claude. Mesma família do rate limiting acima, e adiado pelo mesmo motivo:
+  contador confiável precisa de store compartilhado ou de tabela de contagem.
+- **Como o custo escapa:** um cliente insistente no WhatsApp gera uma chamada por
+  lote de mensagens; quem tiver o `EVOLUTION_WEBHOOK_SECRET` gera quantas quiser.
+  A idempotência contém a REPETIÇÃO da mesma mensagem (UNIQUE tenant_id +
+  external_message_id), mas ids diferentes a cada POST passam por ela.
+- **O que já limita, parcialmente:** o claim é por CONVERSA, então rajada de
+  mensagens do mesmo contato vira UMA chamada em vez de N; o teto de 8.000 chars
+  de histórico e de ~4.000 de conteúdo limitam o tamanho de cada chamada; e
+  `inbound_max_attempts()` (5) impede que uma mensagem problemática seja
+  reprocessada para sempre. Nada disso limita o VOLUME de conversas distintas.
+- **Quando tratar:** passo dedicado, junto com o rate limiting do webhook e do
+  login — o mesmo store resolve os três. Antes de um escritório real usar em
+  produção.
 
 ### Segurança do webhook (a implementar no Passo 3)
 - O endpoint que recebe eventos da Evolution processa entrada externa
