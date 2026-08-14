@@ -101,15 +101,73 @@ async function lerMensagem(id) {
   return data
 }
 
-const { data: tenant } = await db.from('tenants').select('id').limit(1).single()
+/**
+ * Apaga as conversas de teste (o cascade da FK remove as mensagens) e confirma
+ * que nada sobrou.
+ *
+ * Roda DUAS vezes de propósito. Na SAÍDA, para não deixar resíduo. E na ENTRADA,
+ * porque uma execução interrompida antes do finally deixa conversa órfã, e a
+ * próxima execução morre no insert com "duplicate key ... conversas_tenant_id_
+ * contato_telefone_key" — erro que aponta para longe da causa real e parece
+ * regressão da RPC. Com limpeza na entrada o script é idempotente e essa falha
+ * enganosa não acontece.
+ */
+async function limparResiduo(rotulo) {
+  console.log(`\n=== Limpeza (${rotulo}) ===`)
+  const { data: apagadas } = await db
+    .from('conversas')
+    .delete()
+    .in('contato_telefone', TELEFONES)
+    .select('id')
+
+  const { count: sobraramConv } = await db
+    .from('conversas')
+    .select('id', { count: 'exact', head: true })
+    .in('contato_telefone', TELEFONES)
+  const { count: sobraramMsg } = await db
+    .from('mensagens')
+    .select('id', { count: 'exact', head: true })
+    .like('external_message_id', 'verify-proc-%')
+
+  console.log(`conversas de teste apagadas: ${apagadas?.length ?? 0}`)
+  console.log(`sobraram: ${sobraramConv} conversas / ${sobraramMsg} mensagens (esperado 0 / 0)`)
+  if (sobraramConv !== 0 || sobraramMsg !== 0) falhou = true
+}
+
+// order by created_at: LIMIT 1 sem ORDER BY devolve linha ARBITRÁRIA. Com um
+// tenant só está dormente, mas no dia que houver dois o teste passaria a escolher
+// tenant aleatório entre execuções e os resultados ficariam irreprodutíveis.
+const { data: tenant } = await db
+  .from('tenants')
+  .select('id')
+  .order('created_at')
+  .limit(1)
+  .single()
 const { data: agente } = await db
   .from('agentes')
   .select('system_prompt')
   .eq('tenant_id', tenant.id)
   .single()
+// Destino do envio cadastrado para este tenant (Passo 3b-2). maybeSingle e não
+// single: tenant sem instância é estado possível, e o teste 1g precisa poder
+// distinguir "a RPC devolveu errado" de "não há instância cadastrada".
+const { data: instancia } = await db
+  .from('instancias_whatsapp')
+  .select('instance_name')
+  .eq('tenant_id', tenant.id)
+  .maybeSingle()
 
 console.log('=== Pre-condicao ===')
-console.log('tenant de teste localizado, agente com prompt de', agente.system_prompt.length, 'chars\n')
+console.log('tenant de teste localizado, agente com prompt de', agente.system_prompt.length, 'chars')
+console.log('instancia cadastrada para o tenant:', instancia ? 'sim' : 'NAO — 1g vai falhar')
+
+// Não começa a testar sem estado limpo: um resíduo faria os testes falharem por
+// motivo enganoso, e um teste que falha pela razão errada é pior que nenhum.
+await limparResiduo('entrada')
+if (falhou) {
+  console.log('\n>>> ABORTADO: nao foi possivel chegar a um estado limpo')
+  process.exit(1)
+}
 
 try {
   // ============================================================
@@ -135,6 +193,19 @@ try {
   check(
     '1c. o vencedor trouxe o system_prompt do tenant',
     vencedor?.system_prompt === agente.system_prompt,
+  )
+  // 1g/1h cobrem o Passo 3b-2: sem estes dois campos a Edge Function sabe O QUE
+  // responder mas não PARA ONDE enviar. Comparo com o que está no banco em vez de
+  // só checar "não é nulo" — um join errado que trouxesse a instância de OUTRO
+  // tenant passaria no teste de nulidade e enviaria a resposta de um escritório
+  // para o cliente de outro (A01). Nenhum dos dois valores é impresso (A09).
+  check(
+    '1g. instance_name devolvido bate com o cadastrado no banco',
+    vencedor?.instance_name != null && vencedor.instance_name === instancia?.instance_name,
+  )
+  check(
+    '1h. contato_telefone devolvido bate com a conversa',
+    vencedor?.contato_telefone === TELEFONES[0],
   )
   check(
     '1d. historico inclui a mensagem nova',
@@ -343,29 +414,9 @@ try {
   check('7g. attempts NAO queimado', depoisRequeue.attempts === 1, `attempts=${depoisRequeue.attempts}`)
   check('7h. claim retoma imediatamente', retomado.data?.status === 'claimed', retomado.data?.status)
 } finally {
-  // ============================================================
-  // LIMPEZA — apaga as conversas de teste; o cascade da FK remove as
-  // mensagens (inbound e outbound). Roda mesmo se algo estourar acima.
-  // ============================================================
-  console.log('\n=== Limpeza ===')
-  const { data: apagadas } = await db
-    .from('conversas')
-    .delete()
-    .in('contato_telefone', TELEFONES)
-    .select('id')
-
-  const { count: sobraramConv } = await db
-    .from('conversas')
-    .select('id', { count: 'exact', head: true })
-    .in('contato_telefone', TELEFONES)
-  const { count: sobraramMsg } = await db
-    .from('mensagens')
-    .select('id', { count: 'exact', head: true })
-    .like('external_message_id', 'verify-proc-%')
-
-  console.log(`conversas de teste apagadas: ${apagadas?.length ?? 0}`)
-  console.log(`sobraram: ${sobraramConv} conversas / ${sobraramMsg} mensagens (esperado 0 / 0)`)
-  if (sobraramConv !== 0 || sobraramMsg !== 0) falhou = true
+  // Roda mesmo se algo estourar acima — é o que impede resíduo de vazar para a
+  // próxima execução.
+  await limparResiduo('saida')
 }
 
 console.log('\n' + (falhou ? '>>> HOUVE FALHA' : '>>> TODOS PASSARAM'))
